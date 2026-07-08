@@ -60,6 +60,8 @@ const languages = {
     voiceMissed: 'Voice input did not catch that. Try again.',
     requestFailed: 'The assistant could not answer yet.',
     ttsFailed: 'Voice playback is not ready yet.',
+    backendUnavailable:
+      'This public preview needs a hosted API backend before live AI replies work.',
   },
   zh: {
     label: '中文',
@@ -86,6 +88,7 @@ const languages = {
     voiceMissed: '没有听清楚，请再试一次。',
     requestFailed: '助手暂时无法回答。',
     ttsFailed: '语音播放暂时不可用。',
+    backendUnavailable: '这个公开预览还需要接入线上 API 后端，才能实时回答。',
   },
 } as const
 
@@ -93,6 +96,7 @@ type Language = keyof typeof languages
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const apiPath = (path: string) => `${apiBaseUrl}${path}`
+const localHosts = new Set(['127.0.0.1', 'localhost'])
 
 const handleAnimationComplete = () => {
   console.log('All letters have animated!')
@@ -114,6 +118,7 @@ function App() {
   const currentPrompt = copy.prompts[promptIndex % copy.prompts.length]
   const displayedResponse = error || reply
   const canSpeakReply = Boolean(reply && !error)
+  const hasApiBackend = Boolean(apiBaseUrl) || localHosts.has(window.location.hostname)
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -153,6 +158,12 @@ function App() {
     setReply('')
     setError('')
     stopVoice()
+
+    if (!hasApiBackend) {
+      setError(copy.backendUnavailable)
+      setIsLoading(false)
+      return
+    }
 
     try {
       const response = await fetch(apiPath('/api/chat'), {
@@ -230,6 +241,11 @@ function App() {
 
     if (isSpeaking) {
       stopVoice()
+      return
+    }
+
+    if (!hasApiBackend) {
+      setError(copy.backendUnavailable)
       return
     }
 
